@@ -1,12 +1,8 @@
-﻿using CefSharp;
+﻿using System;
+using CefSharp;
 using CefSharp.OffScreen;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Twilio;
 using Twilio.AspNet.Core;
 using Twilio.Rest.Api.V2010.Account;
@@ -19,33 +15,33 @@ namespace NewBurgerKingBot.Controllers
     public class BurgerKingController : TwilioController
     {
 
-        string fromNumber;
-        string toNumber;
-        string jsCode;
-        IConfiguration configuration;
+        private string _fromNumber;
+        private string _toNumber;
+        private string _jsCode;
+        private readonly IConfiguration _configuration;
 
         public BurgerKingController(IConfiguration configuration)
         {
-            this.configuration = configuration;
+            this._configuration = configuration;
         }
 
         [HttpPost]
         public void Index()
         {
-            TwilioClient.Init(configuration["TwilioAccountSID"], configuration["TwilioAuthToken"]);
-            fromNumber = Request.Form["From"];
-            toNumber = Request.Form["To"];
+            TwilioClient.Init(_configuration["TwilioAccountSID"], _configuration["TwilioAuthToken"]);
+            _fromNumber = Request.Form["From"];
+            _toNumber = Request.Form["To"];
             var burgerKingCode = Request.Form["Body"].ToString();
-            if (burgerKingCode.Length !=int.Parse(configuration["Length"]))
+            if (burgerKingCode.Length != int.Parse(_configuration["Length"]))
             {
-                MessageResource.Create(body: "kodunuz hatalı!!!", from: new(toNumber), to: new(fromNumber));
+                MessageResource.Create(body: "kodunuz hatalı!!!", from: new PhoneNumber(_toNumber), to: new PhoneNumber(_fromNumber));
                 return;
             }
-            jsCode = configuration["jsCode"].Replace("BurgerKingCode", burgerKingCode);
-            ChromiumWebBrowser chromiumWebBrowser = new(configuration["url"]);
+            _jsCode = _configuration["jsCode"].Replace("BurgerKingCode", burgerKingCode);
+            ChromiumWebBrowser chromiumWebBrowser = new(_configuration["url"]);
             chromiumWebBrowser.FrameLoadEnd += WebBrowserFrameLoadEnded;
-            
-            MessageResource.Create(body: "kodunuz hazırlanmaya başladı",from: new(toNumber),to: new(fromNumber));
+
+            MessageResource.Create(body: "kodunuz hazırlanmaya başladı", from: new PhoneNumber(_toNumber), to: new PhoneNumber(_fromNumber));
         }
 
         private void WebBrowserFrameLoadEnded(object sender, FrameLoadEndEventArgs e)
@@ -57,12 +53,12 @@ namespace NewBurgerKingBot.Controllers
                     var html = taskHtml.Result;
                     if (html.Contains("Kampanya Kodu"))
                     {
-                        var kod = html.Substring(html.IndexOf("Kampanya Kodu"), 23);
-                        MessageResource.Create(body: kod,from: new(toNumber),to: new(fromNumber));
+                        var kod = html.Substring(html.IndexOf("Kampanya Kodu", StringComparison.Ordinal), 23);
+                        MessageResource.Create(body: kod, from: new PhoneNumber(_toNumber), to: new PhoneNumber(_fromNumber));
                     }
                     else
                     {
-                        (sender as ChromiumWebBrowser).ExecuteScriptAsync(jsCode);
+                        (sender as ChromiumWebBrowser).ExecuteScriptAsync(_jsCode);
                     }
                 });
             }
